@@ -1,0 +1,11 @@
+version: '3'
+services:
+  app:
+    image: tatsuki1107/recsys
+    volumes:
+      - ./:/app
+    ports:
+      - 8888:8888
+    tty: true
+    platform: linux/amd64
+    command: poetry run jupyter lab --allow-root --ip=0.0.0.0 --LabApp.token=""
