@@ -5,13 +5,14 @@ np.random.seed(0)
 
 
 def split(
-    num_users: int = None,
     num_test_items: int = 5,
-    minimum_num_rating: int = None,
+    num_ratings_given_by_users: int = 20,
+    num_items_rated: int = 10,
     df: pd.DataFrame = pd.DataFrame
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
-    df = df.groupby('User-ID').filter(lambda x: len(x["User-ID"]) >= 20)
+    df = df.groupby(
+        'User-ID').filter(lambda x: len(x["User-ID"]) >= num_ratings_given_by_users)
     df = df.reset_index(drop=True)
     df_index = list(df.index)
     unique_user_ids = df["User-ID"].unique()
@@ -28,5 +29,8 @@ def split(
 
     train_df = df.iloc[train_index]
     test_df = df.iloc[test_index]
+
+    train_df = train_df.groupby('ISBN').filter(
+        lambda x: len(x["ISBN"]) >= num_items_rated)
 
     return train_df, test_df
