@@ -3,7 +3,6 @@ import pandas as pd
 from collections import defaultdict
 from util.models import RecommendResult
 from surprise import SVD, Reader, Dataset
-from surprise.model_selection import cross_validate
 np.random.seed(0)
 
 
@@ -27,7 +26,7 @@ class MFRecommender:
         reader = Reader(rating_scale=(1, 10))
         data_train = Dataset.load_from_df(
             train_df[["User-ID", "ISBN", "Book-Rating"]], reader
-        )
+        ).build_full_trainset()
 
         # Surpriseで行列分解を学習
         # SVDという名前だが、特異値分解ではなく、Matrix Factorizationが実行される
@@ -37,8 +36,6 @@ class MFRecommender:
             lr_all=lr_all,
             biased=use_biase
         )
-        
-        cross_validate(matrix_factorization, data_train, cv=5)
         matrix_factorization.fit(data_train)
 
         def get_top_n(predictions, n=10):
