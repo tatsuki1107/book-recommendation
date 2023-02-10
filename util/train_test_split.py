@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
+from .time import stop_watch
 from typing import Tuple, Dict, List
 np.random.seed(0)
 
 
+@stop_watch
 def split(
     num_test_items: int = 5,
     num_ratings_given_by_users: int = 15,
@@ -14,12 +16,12 @@ def split(
     df = df.groupby(
         'User-ID').filter(lambda x: len(x["User-ID"]) >= num_ratings_given_by_users)
     df = df.reset_index(drop=True)
-    df_index = list(df.index)
+    df_index = df.index.to_numpy()
     unique_user_ids = df["User-ID"].unique()
 
     test_index = []
     for user_id in unique_user_ids:
-        user_rating_item = list(df[df["User-ID"] == user_id].index)
+        user_rating_item = df[df["User-ID"] == user_id].index.to_numpy()
         selected_index = np.random.choice(
             user_rating_item, num_test_items, replace=False
         )
