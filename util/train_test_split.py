@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from .time import stop_watch
 from typing import Tuple, Dict, List
+from time import time
 np.random.seed(0)
 
 
@@ -20,12 +21,15 @@ def split(
     unique_user_ids = df["User-ID"].unique()
 
     test_index = []
+    start = time()
     for user_id in unique_user_ids:
         user_rating_item = df[df["User-ID"] == user_id].index.to_numpy()
         selected_index = np.random.choice(
             user_rating_item, num_test_items, replace=False
         )
         test_index.extend(selected_index)
+    stop = time()
+    print(f"for文のタイム: {stop-start:.2f}")
 
     train_index = list(set(df_index) - set(test_index))
 
