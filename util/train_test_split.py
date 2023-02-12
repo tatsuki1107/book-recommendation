@@ -45,7 +45,4 @@ def split(
     test_df = test_df[test_df["User-ID"].isin(train_user_ids)]
     test_df = test_df[test_df["ISBN"].isin(train_book_ids)]
 
-    test_user_like_books = test_df[test_df["Book-Rating"] >=
-                                   8].groupby('User-ID').agg({"ISBN": list})["ISBN"].to_dict()
-
-    return train_df, test_df, test_user_like_books
+    return train_df, test_df
