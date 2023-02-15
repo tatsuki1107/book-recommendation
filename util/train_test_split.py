@@ -1,3 +1,4 @@
+import joblib
 import pandas as pd
 import numpy as np
 from .time import stop_watch
@@ -12,37 +13,55 @@ def split(
     num_ratings_given_by_users: int = 15,
     num_items_rated: int = 10,
     df: pd.DataFrame = pd.DataFrame
-) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[int, List[int]]]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
-    df = df.groupby(
-        'User-ID').filter(lambda x: len(x["User-ID"]) >= num_ratings_given_by_users)
-    df = df.reset_index(drop=True)
-    df_index = df.index.to_numpy()
-    unique_user_ids = df["User-ID"].unique()
+    _df = df.copy()
+
+    _df = _df.groupby(
+        'user_id').filter(lambda x: len(x["user_id"]) >= num_ratings_given_by_users)
+    _df = _df.reset_index(drop=True)
+    df_index = _df.index.to_numpy()
+    unique_user_ids = _df["user_id"].unique()
 
     test_index = []
-    start = time()
     for user_id in unique_user_ids:
-        user_rating_item = df[df["User-ID"] == user_id].index.to_numpy()
+        user_rating_item = _df[_df["user_id"] == user_id].index.to_numpy()
         selected_index = np.random.choice(
             user_rating_item, num_test_items, replace=False
         )
         test_index.extend(selected_index)
-    stop = time()
-    print(f"for文のタイム: {stop-start:.2f}")
 
     train_index = list(set(df_index) - set(test_index))
 
-    train_df = df.iloc[train_index]
-    test_df = df.iloc[test_index]
+    train_df = _df.iloc[train_index]
+    test_df = _df.iloc[test_index]
 
-    train_df = train_df.groupby('ISBN').filter(
-        lambda x: len(x["ISBN"]) >= num_items_rated)
+    train_df = train_df.groupby('book_id').filter(
+        lambda x: len(x["book_id"]) >= num_items_rated)
 
     # trainデータのスコープ内で学習するのでtrainデータに出てくるアイテムとユーザをテストデータにする必要がある。
-    train_user_ids = train_df["User-ID"].unique()
-    train_book_ids = train_df["ISBN"].unique()
-    test_df = test_df[test_df["User-ID"].isin(train_user_ids)]
-    test_df = test_df[test_df["ISBN"].isin(train_book_ids)]
+    train_user_ids = train_df["user_id"].unique()
+    train_book_ids = train_df["book_id"].unique()
+    test_df = test_df[test_df["user_id"].isin(train_user_ids)]
+    test_df = test_df[test_df["book_id"].isin(train_book_ids)]
 
-    return train_df, test_df
+    user_df, book_df = _open_pkl()
+
+    user_df = user_df[user_df["user_id"].isin(train_user_ids)]
+    user_df = user_df.reset_index(drop=True)
+
+    book_df = book_df[book_df["book_id"].isin(train_book_ids)]
+    book_df = book_df.reset_index(drop=True)
+
+    rating_df = pd.concat([train_df, test_df])
+
+    return train_df, test_df, user_df, book_df, rating_df
+
+
+def _open_pkl() -> Tuple[pd.DataFrame, pd.DataFrame]:
+    with open("../data/user.pkl", "rb") as f:
+        user_df = joblib.load(f)
+    with open("../data/book.pkl", "rb") as f:
+        book_df = joblib.load(f)
+
+    return user_df, book_df

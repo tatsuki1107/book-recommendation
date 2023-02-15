@@ -1,3 +1,4 @@
+from itertools import chain
 from surprise.model_selection import KFold
 from surprise import accuracy, Dataset, Reader, SVD
 import numpy as np
@@ -5,6 +6,10 @@ import pandas as pd
 from collections import defaultdict
 import joblib
 from util.time import stop_watch
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
+
 pd.options.display.float_format = "{:.2f}".format
 
 
@@ -13,7 +18,7 @@ class MF:
         reader = Reader(rating_scale=(1, 10))
         self.data_train = Dataset.load_from_df(train_df, reader)
         self.test_data = [tuple(e) for e in zip(
-            test_df["User-ID"], test_df["ISBN"], test_df["Book-Rating"])]
+            test_df["user_id"], test_df["book_id"], test_df["book_rating"])]
         self.test_df = test_df
 
     def set_params(self, **kwargs):
@@ -50,10 +55,13 @@ class MF:
 
     @stop_watch
     def test(self):
+        test_data = [tuple(e) for e in zip(
+            self.test_df["user_id"], self.test_df["book_id"], self.test_df["book_rating"])]
+
         full_data = self.data_train.build_full_trainset()
         self.mf.fit(full_data)
         self.test_bool = True
-        predictions = self.mf.test(self.test_data)
+        predictions = self.mf.test(test_data)
 
         rmse = accuracy.rmse(predictions, verbose=False)
         precision, recall = self._precision_recall_at_k(predictions)
@@ -69,7 +77,7 @@ class MF:
         predictions = self.mf.test(anti_testset)
 
         test_ui_pair = set(tuple(e) for e in zip(
-            self.test_df["User-ID"], self.test_df["ISBN"]))
+            self.test_df["user_id"], self.test_df["book_id"]))
 
         top_n = defaultdict(list)
         for uid, iid, true_r, est, _ in predictions:
@@ -86,17 +94,44 @@ class MF:
         with open("../data/mf.pkl", "wb") as f:
             joblib.dump(self.mf, f)
 
-    def reclist_to_csv(self):
-        # if self.recommend_books is None:
-        #    raise "you must run recommend method"
-        #
-        # with open("../data/explicit.pkl", "rb") as f:
-        #    df = joblib.load(f)
-        # with open("../data/user.pkl", "rb") as f:
-        #    user_df = joblib.load(f)
-        # with open("../data/book.pkl", "rb") as f:
-        #    book_df = joblib.load(f)
-        pass
+    def reclist_to_csv(self, user_df: pd.DataFrame) -> pd.DataFrame:
+        if self.recommend_books is None:
+            raise "you must run recommend method"
+
+        user_df.sort_values('user_id', inplace=True)
+
+        sorted_recommend_dict = dict(
+            sorted(self.recommend_books.items(), key=lambda x: x[0]))
+
+        user_df["mf_recommend_item"] = list(sorted_recommend_dict.values())
+
+        return user_df
+
+    def check_over_fit_model(self, user_df: pd.DataFrame, rating_df: pd.DataFrame) -> None:
+        if user_df["mf_recommend_item"] is None:
+            raise "you must run recommend method"
+
+        recommended_books = user_df["mf_recommend_item"].to_list()
+        recommended_books = list(chain.from_iterable(recommended_books))
+
+        book_count = {}
+        for book in recommended_books:
+            book_count[book] = 1 + book_count.get(book, 0)
+
+        print(f"各ユーザにレコメンドされた本のユニーク数: {len(book_count)}")
+
+        book_count = dict(sorted(book_count.items(), key=lambda x: x[0]))
+
+        rec_df = rating_df[rating_df["book_id"].isin(set(recommended_books))].groupby("book_id").agg(
+            {"book_rating": ["mean", "count"]}).sort_values(by="book_id")
+        rec_df["recommend_count"] = list(book_count.values())
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 5))
+
+        sns.scatterplot(rec_df, x=("book_rating", "count"),
+                        y="recommend_count", ax=ax1)
+        sns.scatterplot(rec_df, x=("book_rating", "mean"),
+                        y="recommend_count", ax=ax2)
 
     def _create_score_df(
         self,
@@ -114,7 +149,6 @@ class MF:
 
         return score_df
 
-    @stop_watch
     def _precision_recall_at_k(self, predictions, k=5, threshold=8):
         """Return precision and recall at k metrics for each user"""
 
