@@ -1,4 +1,5 @@
 from itertools import chain
+from typing import Tuple
 from surprise.model_selection import KFold
 from surprise import accuracy, Dataset, Reader, SVD
 import numpy as np
@@ -8,20 +9,29 @@ import joblib
 from util.time import stop_watch
 import matplotlib.pyplot as plt
 import seaborn as sns
+from time import time
 sns.set()
 
 pd.options.display.float_format = "{:.2f}".format
 
 
 class MF:
-    def __init__(self, train_df, test_df):
+    def __init__(
+        self,
+        train_df: pd.DataFrame,
+        test_df: pd.DataFrame
+    ) -> None:
+        """trainデータとtestデータをセット"""
+
         reader = Reader(rating_scale=(1, 10))
         self.data_train = Dataset.load_from_df(train_df, reader)
         self.test_data = [tuple(e) for e in zip(
             test_df["user_id"], test_df["book_id"], test_df["book_rating"])]
         self.test_df = test_df
 
-    def set_params(self, **kwargs):
+    def set_params(self, **kwargs) -> None:
+        """ハイパーパラメータをセット"""
+
         n_factors = kwargs.get("n_factors", 200)
         lr_all = kwargs.get("lr_all", 0.005)
         n_epochs = kwargs.get('n_epochs', 200)
@@ -35,9 +45,10 @@ class MF:
         )
 
     @stop_watch
-    def cross_validation(self):
+    def cross_validation(self, k: int = 5) -> None:
+        """trainデータだけを用いてクロスバリデーション"""
 
-        kf = KFold(n_splits=5)
+        kf = KFold(n_splits=k)
 
         kf_p, kf_r, kf_rmse = [], [], []
         for train, val in kf.split(self.data_train):
@@ -54,12 +65,14 @@ class MF:
             np.mean(kf_p), np.mean(kf_r), np.mean(kf_rmse))
 
     @stop_watch
-    def test(self):
+    def test(self) -> None:
+        """全てのtrainデータで学習しテストデータで検証"""
+
         test_data = [tuple(e) for e in zip(
             self.test_df["user_id"], self.test_df["book_id"], self.test_df["book_rating"])]
 
-        full_data = self.data_train.build_full_trainset()
-        self.mf.fit(full_data)
+        self.full_data = self.data_train.build_full_trainset()
+        self.mf.fit(self.full_data)
         self.test_bool = True
         predictions = self.mf.test(test_data)
 
@@ -69,45 +82,59 @@ class MF:
         self.test_score = self._create_score_df(precision, recall, rmse)
 
     @stop_watch
-    def recommend(self, n=5):
+    def recommend(self, n: int = 5) -> None:
+        """testデータに出てこない予測値の高いトップkを抽出"""
 
         if not self.test_bool:
             raise("you have to call the test method")
-        anti_testset = self.data_train.build_full_trainset().build_anti_testset(None)
+
+        anti_testset = self.full_data.build_anti_testset(None)
         predictions = self.mf.test(anti_testset)
 
         test_ui_pair = set(tuple(e) for e in zip(
             self.test_df["user_id"], self.test_df["book_id"]))
 
-        top_n = defaultdict(list)
+        start = time()
+        self.top_n = defaultdict(list)
         for uid, iid, true_r, est, _ in predictions:
             if (uid, iid) not in test_ui_pair:
-                top_n[uid].append((iid, est))
+                self.top_n[uid].append((iid, est))
 
-        for uid, user_ratings in top_n.items():
+        for uid, user_ratings in self.top_n.items():
             user_ratings.sort(key=lambda x: x[1], reverse=True)
-            top_n[uid] = [d[0] for d in user_ratings[:n]]
+            self.top_n[uid] = [d[0] for d in user_ratings[:n]]
 
-        self.recommend_books = top_n
+        stop = time()
+        print(f'for文のタイム: {stop-start:.2f}秒')
 
-    def save_model(self):
+    def save_model(self) -> None:
+        """このクラスをpklファイルとして保存"""
+
         with open("../data/mf.pkl", "wb") as f:
             joblib.dump(self.mf, f)
 
     def reclist_to_csv(self, user_df: pd.DataFrame) -> pd.DataFrame:
-        if self.recommend_books is None:
+        """レコメンドリストをuser_dfに格納"""
+
+        if self.top_n is None:
             raise "you must run recommend method"
 
         user_df.sort_values('user_id', inplace=True)
 
         sorted_recommend_dict = dict(
-            sorted(self.recommend_books.items(), key=lambda x: x[0]))
+            sorted(self.top_n.items(), key=lambda x: x[0]))
 
         user_df["mf_recommend_item"] = list(sorted_recommend_dict.values())
 
         return user_df
 
-    def check_over_fit_model(self, user_df: pd.DataFrame, rating_df: pd.DataFrame) -> None:
+    def check_over_fit_model(
+        self,
+        user_df: pd.DataFrame,
+        rating_df: pd.DataFrame
+    ) -> None:
+        """評価された数が少なく、平均的に高評価なアイテムに過学習しているかチェック"""
+
         if user_df["mf_recommend_item"] is None:
             raise "you must run recommend method"
 
@@ -139,6 +166,8 @@ class MF:
         recall: float,
         rmse: float
     ) -> pd.DataFrame:
+        """評価指標を詰め込んだDataFrameを抽出"""
+
         score_df = pd.DataFrame(
             data={
                 "precision": precision,
@@ -149,7 +178,12 @@ class MF:
 
         return score_df
 
-    def _precision_recall_at_k(self, predictions, k=5, threshold=8):
+    def _precision_recall_at_k(
+        self,
+        predictions,
+        k: int = 5,
+        threshold: int = 8
+    ) -> Tuple[float, float]:
         """Return precision and recall at k metrics for each user"""
 
         user_est_true = defaultdict(list)
