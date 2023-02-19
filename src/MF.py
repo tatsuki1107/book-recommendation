@@ -128,7 +128,7 @@ class MF:
 
         return user_df
 
-    def check_over_fit_model(
+    def check_model_behavior(
         self,
         user_df: pd.DataFrame,
         rating_df: pd.DataFrame

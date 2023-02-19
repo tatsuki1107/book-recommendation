@@ -1,6 +1,5 @@
 import joblib
-from fastapi import HTTPException
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import pandas as pd
 import numpy as np
 
@@ -24,6 +23,27 @@ def _get_book_info(df: pd.DataFrame) -> List:
     return book_info
 
 
+def _get_author_publisher_info(column: str, df: pd.DataFrame) -> List:
+    df = df[df["book_rating"] >= 8.0]
+    if len(df) == 0:
+        return []
+
+    df = df.groupby(column)["book_rating"].agg(
+        {"mean", "count"}).sort_values(by=["mean", "count"], ascending=False)
+
+    target_list = df.index.to_list()
+    counts = df["count"].to_list()
+    means = df["mean"].to_list()
+
+    column_rating_info = []
+    for target, count, mean in zip(target_list, counts, means):
+        _dict = {}
+        _dict[column], _dict["count"], _dict["mean"] = target, count, mean
+        column_rating_info.append(_dict)
+
+    return column_rating_info
+
+
 def get_recommend_list(user_id: int) -> List:
 
     user_df, book_df, rating_df = _open_pkl()
@@ -38,7 +58,7 @@ def get_recommend_list(user_id: int) -> List:
     return book_info
 
 
-def get_history_list(user_id: int) -> List:
+def get_history_list(user_id: int) -> Dict:
 
     user_df, book_df, rating_df = _open_pkl()
 
@@ -46,10 +66,16 @@ def get_history_list(user_id: int) -> List:
     rating_df = rating_df.merge(book_df, on="book_id")
 
     rating_df = rating_df[rating_df.columns[rating_df.columns != 'user_id']]
-
     book_info = _get_book_info(rating_df)
 
-    return book_info
+    history_info = dict()
+    for column in ["book_author", "publisher"]:
+        column_rating_info = _get_author_publisher_info(column, rating_df)
+        history_info[f"rated_{column}"] = column_rating_info
+
+    history_info["history_book"] = book_info
+
+    return history_info
 
 
 def get_user_list() -> np.array:

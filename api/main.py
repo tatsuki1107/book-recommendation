@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Dict
 from usa import get_recommend_list, get_history_list, get_user_list
 
 app = FastAPI()
@@ -19,10 +19,10 @@ def get_recommend_books(user_id: int):
     return books
 
 
-@app.get('/api/rating_history', response_model=List)
+@app.get('/api/rating_history', response_model=Dict)
 def get_rating_books(user_id: int):
-    books = get_history_list(user_id)
-    return books
+    history_info = get_history_list(user_id)
+    return history_info
 
 
 @app.post('/api/login')
