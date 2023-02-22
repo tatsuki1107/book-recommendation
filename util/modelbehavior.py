@@ -97,7 +97,7 @@ class ModelBehavior:
         self.author_publisher_prob = prob
         print(prob)
 
-    def plot_pca(qi: np.ndarray) -> None:
+    def plot_pca(self, qi: np.ndarray) -> None:
         """アイテムの因子行列を主成分分析することで過剰に反応している本がないかチェックする。"""
 
         scaler = StandardScaler()
