@@ -44,7 +44,7 @@ class MatrixFactorization:
         # 傾向スコア (Propensity Score; pscore)
         pscore: Optional[np.ndarray] = None,
         n_epochs: int = 10,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> Tuple[List[float], List[float], List[float]]:
         """トレーニングデータを用いてモデルパラメータを学習し、バリデーションとテストデータに対する予測誤差の推移を出力.
         パラメータ
         ----------
@@ -73,7 +73,7 @@ class MatrixFactorization:
         self._initialize_model_parameters(n_users=n_users, n_items=n_items)
 
         # トレーニングデータを用いてモデルパラメータを学習
-        val_loss, test_loss = [], []
+        train_loss, val_loss, test_loss = [], [], []
         for _ in tqdm(range(n_epochs)):
             self.random_.shuffle(train)
             for user, item, rating in train:
@@ -87,17 +87,16 @@ class MatrixFactorization:
 
             # バリデーションデータに対する嗜好度合いの予測誤差を計算
             # 傾向スコアが与えられた場合はそれを用いたIPS推定量で、そうでない場合はナイーブ推定量を用いる
+            r_hat_train = self.predict(data=train)
+            train_loss.append(np.sqrt(calc_mse(train[:, 2], r_hat_train)))
             r_hat_val = self.predict(data=val)
             inv_pscore_val = 1.0 / pscore[val[:, 2] - 1]  # 傾向スコアの逆数
-            val_loss.append(
-                np.sqrt(calc_mse(val[:, 2], r_hat_val,
-                        sample_weight=inv_pscore_val))
-            )
+            val_loss.append(np.sqrt(calc_mse(val[:, 2], r_hat_val)))
             # テストデータにおける嗜好度合いの予測誤差を計算
-            r_hat_test = self.predict(data=test)
-            test_loss.append(np.sqrt(calc_mse(test[:, 2], r_hat_test)))
+            #r_hat_test = self.predict(data=test)
+            #test_loss.append(np.sqrt(calc_mse(test[:, 2], r_hat_test)))
 
-        return val_loss, test_loss
+        return train_loss, val_loss, test_loss
 
     def _initialize_model_parameters(self, n_users: int, n_items: int) -> None:
         """モデルパラメータを初期化."""
