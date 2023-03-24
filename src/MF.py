@@ -23,7 +23,7 @@ class MF:
     ) -> None:
         """trainデータとtestデータをセット"""
 
-        reader = Reader(rating_scale=(1, 10))
+        reader = Reader(rating_scale=(1, 5))
         self.data_train = Dataset.load_from_df(train_df, reader)
         self.test_data = [tuple(e) for e in zip(
             test_df["user_id"], test_df["book_id"], test_df["book_rating"])]
@@ -73,7 +73,10 @@ class MF:
 
         self.full_data = self.data_train.build_full_trainset()
         self.mf.fit(self.full_data)
+        
+        #　このメソッドを実行したあとにrecommendメソッドを実行可能にするため、bool値を設定
         self.test_bool = True
+        
         predictions = self.mf.test(test_data)
 
         rmse = accuracy.rmse(predictions, verbose=False)
@@ -128,38 +131,6 @@ class MF:
 
         return user_df
 
-    def check_model_behavior(
-        self,
-        user_df: pd.DataFrame,
-        rating_df: pd.DataFrame
-    ) -> None:
-        """評価された数が少なく、平均的に高評価なアイテムに過学習しているかチェック"""
-
-        if user_df["mf_recommend_item"] is None:
-            raise "you must run recommend method"
-
-        recommended_books = user_df["mf_recommend_item"].to_list()
-        recommended_books = list(chain.from_iterable(recommended_books))
-
-        book_count = {}
-        for book in recommended_books:
-            book_count[book] = 1 + book_count.get(book, 0)
-
-        print(f"各ユーザにレコメンドされた本のユニーク数: {len(book_count)}")
-
-        book_count = dict(sorted(book_count.items(), key=lambda x: x[0]))
-
-        rec_df = rating_df[rating_df["book_id"].isin(set(recommended_books))].groupby("book_id").agg(
-            {"book_rating": ["mean", "count"]}).sort_values(by="book_id")
-        rec_df["recommend_count"] = list(book_count.values())
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 5))
-
-        sns.scatterplot(rec_df, x=("book_rating", "count"),
-                        y="recommend_count", ax=ax1)
-        sns.scatterplot(rec_df, x=("book_rating", "mean"),
-                        y="recommend_count", ax=ax2)
-
     def _create_score_df(
         self,
         precision: float,
@@ -182,7 +153,7 @@ class MF:
         self,
         predictions,
         k: int = 5,
-        threshold: int = 8
+        threshold: int = 4
     ) -> Tuple[float, float]:
         """Return precision and recall at k metrics for each user"""
 

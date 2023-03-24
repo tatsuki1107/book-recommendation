@@ -1,28 +1,31 @@
+from exception import logging_exception
 import joblib
 from typing import List, Tuple, Dict
 import pandas as pd
 import numpy as np
 
-
+@logging_exception
 def _open_pkl() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     with open("mf-api.pkl", "rb") as f:
         user_df, book_df, rating_df = joblib.load(f)
     return user_df, book_df, rating_df
 
-
+@logging_exception
 def _get_book_info(df: pd.DataFrame) -> List:
     columns = df.columns.to_list()
     book_info = []
     for i in range(len(df)):
         info = {}
         for column in columns:
+            if column == "title_embedding":
+                continue
             info[column] = df.iloc[i][column]
 
         book_info.append(info)
 
     return book_info
 
-
+@logging_exception
 def _get_author_publisher_info(column: str, df: pd.DataFrame) -> List:
     df = df[df["book_rating"] >= 8.0]
     if len(df) == 0:
@@ -43,7 +46,7 @@ def _get_author_publisher_info(column: str, df: pd.DataFrame) -> List:
 
     return column_rating_info
 
-
+@logging_exception
 def get_recommend_list(user_id: int) -> List:
 
     user_df, book_df, rating_df = _open_pkl()
@@ -57,7 +60,7 @@ def get_recommend_list(user_id: int) -> List:
 
     return book_info
 
-
+@logging_exception
 def get_history_list(user_id: int) -> Dict:
 
     user_df, book_df, rating_df = _open_pkl()
@@ -77,7 +80,7 @@ def get_history_list(user_id: int) -> Dict:
 
     return history_info
 
-
+@logging_exception
 def get_user_list() -> np.array:
 
     user_df, book_df, rating_df = _open_pkl()

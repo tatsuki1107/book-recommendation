@@ -9,6 +9,8 @@ services:
     tty: true
     platform: linux/amd64
     command: poetry run jupyter lab --allow-root --ip=0.0.0.0 --LabApp.token=""
+    env_file:
+      - .env
 
   fast-api:
     container_name: fast-api
@@ -18,3 +20,5 @@ services:
     ports:
       - 8000:8000
     tty: true
+    env_file:
+      - ./api/.env

@@ -2,8 +2,7 @@ import joblib
 import pandas as pd
 import numpy as np
 from .time import stop_watch
-from typing import Tuple, Dict, List
-from time import time
+from typing import Tuple
 np.random.seed(0)
 
 
@@ -13,12 +12,16 @@ def split(
     num_ratings_given_by_users: int = 15,
     num_items_rated: int = 10,
     df: pd.DataFrame = pd.DataFrame
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame,
+           pd.DataFrame, pd.DataFrame, pd.DataFrame
+           ]:
 
     _df = df.copy()
 
     _df = _df.groupby(
-        'user_id').filter(lambda x: len(x["user_id"]) >= num_ratings_given_by_users)
+        'user_id').filter(
+            lambda x: len(x["user_id"]) >= num_ratings_given_by_users
+    )
     _df = _df.reset_index(drop=True)
     df_index = _df.index.to_numpy()
     unique_user_ids = _df["user_id"].unique()
