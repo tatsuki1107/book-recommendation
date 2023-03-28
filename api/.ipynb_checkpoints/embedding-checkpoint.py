@@ -2,6 +2,7 @@ import openai
 import os
 from exception import logging_exception
 from typing import List
+import numpy as np
 
 openai.api_key = os.environ["OPENAI_API_KEY"]
 

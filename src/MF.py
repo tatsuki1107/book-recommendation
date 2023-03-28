@@ -1,4 +1,3 @@
-from itertools import chain
 from typing import Tuple
 from surprise.model_selection import KFold
 from surprise import accuracy, Dataset, Reader, SVD
@@ -7,7 +6,6 @@ import pandas as pd
 from collections import defaultdict
 import joblib
 from util.time import stop_watch
-import matplotlib.pyplot as plt
 import seaborn as sns
 from time import time
 sns.set()
